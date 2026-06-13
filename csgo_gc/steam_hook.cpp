@@ -377,8 +377,12 @@ static void InitializeClientGameInterfaces()
 
     if (profile.gameEventManagerVersion)
         s_gameEventManager = reinterpret_cast<IGameEventManager2 *>(s_engineFactory(GameEventManagerVersion(), nullptr));
+    // CS2: Source2EngineToClient001 has a different vtable — skip until mapped
     if (profile.engineClientVersion)
         s_engineClient = reinterpret_cast<IVEngineClient *>(s_engineFactory(VEngineClientVersion(), nullptr));
+    // game event listeners require engineClient for local player lookup; skip for CS2
+    if (!s_engineClient)
+        s_gameEventManager = nullptr;
 }
 
 static void UpdateGameEventListeners()

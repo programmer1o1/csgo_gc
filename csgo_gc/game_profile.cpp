@@ -18,15 +18,21 @@ const GameProfile g_profileCSGO = {
 //   network_protocol = 14165  (field 2)
 //   build_num        = 10772  (field 13)
 //
-// Interface strings still needed — on the Windows CS2 install run:
-//   strings "game\bin\win64\engine2.dll" | grep -iE "GAMEEVENTSMANAGER|EngineClient"
-// Then fill in gameEventManagerVersion and engineClientVersion below.
+// Interface strings sourced from a2x/cs2-dumper (engine2.dll exports).
+// CS2 renamed everything — Source 2 dropped the Source 1 naming convention:
+//   GAMEEVENTSMANAGER002  ->  GameEventSystemClientV001
+//   VEngineClient014      ->  Source2EngineToClient001
+//
+// NOTE: vtable layouts differ from Source 1. GetLocalPlayer/GetPlayerInfo
+// offsets in IVEngineClient do NOT map to Source2EngineToClient001.
+// The engine client hook is currently a no-op for CS2 (nullptr skips it).
+// Game event registration (AddListener) also needs vtable research for CS2.
 const GameProfile g_profileCS2 = {
     .mode                   = GameMode::CS2,
     .appId                  = 730,
     .engineModule           = "engine2",
-    .gameEventManagerVersion = nullptr, // TODO: strings engine2.dll | grep GAMEEVENTSMANAGER
-    .engineClientVersion    = nullptr, // TODO: strings engine2.dll | grep EngineClient
+    .gameEventManagerVersion = "GameEventSystemClientV001",
+    .engineClientVersion    = nullptr, // Source2EngineToClient001 vtable incompatible; skip for now
     .requiredAppIdVersion   = 14165,   // network_protocol from CDemoFileHeader
     .requiredAppIdVersion2  = 10772,   // build_num from CDemoFileHeader
     .pricesheetVersion      = 0,
