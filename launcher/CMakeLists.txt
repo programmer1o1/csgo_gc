@@ -10,8 +10,8 @@ function(launcher_target NAME DEDICATED)
     
     set_target_properties(${NAME} PROPERTIES OUTPUT_NAME ${NAME}${GC_EXE_SUFFIX})
     
-    if (MSVC)
-        # we need large address awareness and a larger stack to not crash
+    if (MSVC AND IS_32BIT)
+        # large address awareness only matters for 32-bit; larger stack to not crash
         target_link_options(${NAME} PRIVATE /LARGEADDRESSAWARE /STACK:1572864)
     endif()
     
@@ -38,7 +38,13 @@ function(launcher_target NAME DEDICATED)
 endfunction()
 
 launcher_target(csgo OFF)
+launcher_target(cs2 OFF)
 
 if (WIN32 OR (IS_32BIT AND NOT APPLE))
     launcher_target(srcds ON)
+endif()
+
+# CS2 dedicated server is always 64-bit
+if (NOT IS_32BIT)
+    launcher_target(cs2ds ON)
 endif()

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "graffiti.h"
 #include "platform.h"
+#include "game_profile.h"
 
 #include <cryptopp/rsa.h>
 #include <cryptopp/rng.h>
@@ -51,6 +52,12 @@ static void PatchPublicKeys(const CryptoPP::RSA::PrivateKey &privateKey)
 void Initialize()
 {
     if (s_privateKeyGenerated)
+    {
+        return;
+    }
+
+    // graffiti RSA patch targets CS:GO-specific binary byte patterns; skip on CS2
+    if (GetGameProfile().mode == GameMode::CS2)
     {
         return;
     }
