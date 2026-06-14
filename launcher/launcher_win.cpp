@@ -48,6 +48,7 @@ typedef int (*LauncherMain_t)(bool bSecure, HINSTANCE hInstance, HINSTANCE hPrev
 #endif
 
 typedef void (*InstallGC_t)(bool dedicated);
+typedef void (*PreInstallGC_t)(bool dedicated);
 
 #if defined(CS2_LAUNCHER)
 // cs2.exe loads tier0.dll first (from game\bin\win64\), then engine2.dll, then calls
@@ -181,12 +182,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     _snwprintf_s(gcPathRaw, std::size(gcPathRaw), L"%ls\\..\\..\\csgo_gc\\" GC_LIB_DIR "\\csgo_gc" GC_LIB_EXTENSION, baseDir);
     GetFullPathNameW(gcPathRaw, std::size(gcPathFull), gcPathFull, nullptr);
 
-    InstallGC_t InstallGC = (InstallGC_t)LoadModuleAndFindSymbol(gcPathFull, "InstallGC");
-    if (!InstallGC)
+    PreInstallGC_t PreInstallGC = (PreInstallGC_t)LoadModuleAndFindSymbol(gcPathFull, "PreInstallGC");
+    if (!PreInstallGC)
     {
         return 1;
     }
-    InstallGC(false);
+    PreInstallGC(false);
 
     // engine2.dll lives next to this exe in game\bin\win64
     _snwprintf_s(modulePath, std::size(modulePath), L"%ls\\engine2.dll", baseDir);

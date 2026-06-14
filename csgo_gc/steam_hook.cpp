@@ -2392,6 +2392,66 @@ static void ShutdownSteamAPI(bool dedicated)
     }
 }
 
+static void InstallSteamClientHooks()
+{
+    uint8_t steamClientPath[4096]; // NOTE: text encoding stored depends on the platform (wchar_t on windows)
+    if (!Platform::SteamClientPath(steamClientPath, sizeof(steamClientPath)))
+    {
+        Platform::Error("Could not get steamclient module path");
+    }
+
+    // load steamclient
+    void *CreateInterface = Platform::SteamClientFactory(steamClientPath);
+    if (!CreateInterface)
+    {
+        Platform::Error("Could not get steamclient factory");
+    }
+
+    INLINE_HOOK(CreateInterface);
+
+    // steam api hooks for gc callbacks
+    INLINE_HOOK(SteamAPI_RegisterCallback);
+    INLINE_HOOK(SteamAPI_UnregisterCallback);
+    INLINE_HOOK(SteamAPI_RunCallbacks);
+    INLINE_HOOK(SteamGameServer_RunCallbacks);
+}
+
+// CS2 deferred path: SteamAPI_Init is hooked so that steamclient setup happens
+// the first time the game calls it (from within Source2Main, after tier0 is ready).
+static bool s_deferredDedicated;
+static bool (*Og_SteamAPI_Init)();
+
+static bool Hk_SteamAPI_Init()
+{
+    bool result = Og_SteamAPI_Init();
+    if (result)
+    {
+        // steamclient is now loaded; install hooks without disconnecting Steam
+        InstallSteamClientHooks();
+    }
+    else
+    {
+        Platform::Error("Steam initialization failed. Please try the following steps:\n"
+                        "- Ensure that Steam is running.\n"
+                        "- Restart Steam and try again.\n"
+                        "- Verify that you have launched app %u through Steam at least once.",
+            AppId::GetOverride());
+    }
+    return result;
+}
+
+void SteamHookPreInstall(bool dedicated)
+{
+    s_deferredDedicated = dedicated;
+
+    AppId::Init();
+    Platform::SetEnvVar("SteamAppId", std::to_string(AppId::GetOverride()).c_str());
+
+    // Hook SteamAPI_Init so the rest of the setup runs the first time the
+    // game calls it (from within Source2Main, after tier0 is fully initialized).
+    INLINE_HOOK(SteamAPI_Init);
+}
+
 void SteamHookInstall(bool dedicated)
 {
     // thanks valve for ruining my life
@@ -2412,27 +2472,8 @@ void SteamHookInstall(bool dedicated)
             AppId::GetOverride());
     }
 
-    uint8_t steamClientPath[4096]; // NOTE: text encoding stored depends on the platform (wchar_t on windows)
-    if (!Platform::SteamClientPath(steamClientPath, sizeof(steamClientPath)))
-    {
-        Platform::Error("Could not get steamclient module path");
-    }
-
     // decrement reference count
     ShutdownSteamAPI(dedicated);
 
-    // load steamclient
-    void *CreateInterface = Platform::SteamClientFactory(steamClientPath);
-    if (!CreateInterface)
-    {
-        Platform::Error("Could not get steamclient factory");
-    }
-
-    INLINE_HOOK(CreateInterface);
-
-    // steam api hooks for gc callbacks
-    INLINE_HOOK(SteamAPI_RegisterCallback);
-    INLINE_HOOK(SteamAPI_UnregisterCallback);
-    INLINE_HOOK(SteamAPI_RunCallbacks);
-    INLINE_HOOK(SteamGameServer_RunCallbacks);
+    InstallSteamClientHooks();
 }
