@@ -136,6 +136,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     *slash = '\0';
 
+    // exe is in game\bin\win64; set working directory to game root (two levels up)
+    // so that csgo_gc's relative paths (csgo_gc/config.txt, csgo/steam.inf) resolve correctly
+    {
+        wchar_t gameRootRaw[MAX_PATH];
+        wchar_t gameRoot[MAX_PATH];
+        _snwprintf_s(gameRootRaw, std::size(gameRootRaw), L"%ls\\..\\..", baseDir);
+        GetFullPathNameW(gameRootRaw, std::size(gameRoot), gameRoot, nullptr);
+        SetCurrentDirectoryW(gameRoot);
+    }
+
     // add our directory to PATH so dependent DLLs (vstdlib, etc.) are found
     {
         std::wstring replacePath;
