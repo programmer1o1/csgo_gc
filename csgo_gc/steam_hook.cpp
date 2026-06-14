@@ -2459,23 +2459,29 @@ static bool Hk_SteamAPI_Init()
 // (which happens lazily during engine init, not at launcher startup).
 
 typedef struct {
-    ULONG Flags;
-    PCUNICODE_STRING FullDllName;
-    PCUNICODE_STRING BaseDllName;
-    PVOID DllBase;
-    ULONG SizeOfImage;
-} LDR_DLL_LOADED_NOTIFICATION_DATA;
+    USHORT Length;
+    USHORT MaximumLength;
+    PWSTR  Buffer;
+} CSGO_UNICODE_STRING;
+
+typedef struct {
+    ULONG              Flags;
+    CSGO_UNICODE_STRING *FullDllName;
+    CSGO_UNICODE_STRING *BaseDllName;
+    PVOID              DllBase;
+    ULONG              SizeOfImage;
+} CSGO_LDR_DLL_LOADED_DATA;
 
 typedef union {
-    LDR_DLL_LOADED_NOTIFICATION_DATA Loaded;
-} LDR_DLL_NOTIFICATION_DATA_CSGO;
+    CSGO_LDR_DLL_LOADED_DATA Loaded;
+} CSGO_LDR_DLL_NOTIFICATION_DATA;
 
-typedef VOID (CALLBACK *PLDR_DLL_NOTIFICATION_FUNCTION)(ULONG, const LDR_DLL_NOTIFICATION_DATA_CSGO *, PVOID);
+typedef VOID (CALLBACK *PLDR_DLL_NOTIFICATION_FUNCTION)(ULONG, const CSGO_LDR_DLL_NOTIFICATION_DATA *, PVOID);
 typedef NTSTATUS (WINAPI *LdrRegisterDllNotification_t)(ULONG, PLDR_DLL_NOTIFICATION_FUNCTION, PVOID, PVOID *);
 
 #define LDR_DLL_NOTIFICATION_REASON_LOADED 1
 
-static void CALLBACK OnSteamClientLoaded(ULONG reason, const LDR_DLL_NOTIFICATION_DATA_CSGO *data, PVOID)
+static void CALLBACK OnSteamClientLoaded(ULONG reason, const CSGO_LDR_DLL_NOTIFICATION_DATA *data, PVOID)
 {
     if (reason != LDR_DLL_NOTIFICATION_REASON_LOADED)
         return;
