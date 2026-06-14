@@ -128,7 +128,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    // strip exe filename — we end up in game\bin\win64\ alongside tier0.dll and engine2.dll
+    // strip exe filename; we end up in game\bin\win64 alongside tier0.dll and engine2.dll
     wchar_t *slash = wcsrchr(baseDir, '\\');
     if (!slash)
     {
@@ -150,7 +150,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         _wputenv_s(L"PATH", replacePath.c_str());
     }
 
-    // tier0.dll lives next to this exe in game\bin\win64\
+    // tier0.dll lives next to this exe in game\bin\win64
     _snwprintf_s(modulePath, std::size(modulePath), L"%ls\\tier0.dll", baseDir);
     if (!LoadLibraryExW(modulePath, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH))
     {
@@ -158,7 +158,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 1;
     }
 
-    // csgo_gc.dll lives in game\csgo_gc\x64\ — go up two levels from game\bin\win64\
+    // csgo_gc.dll lives in game\csgo_gc\x64; go up two levels from game\bin\win64
     wchar_t gcPathRaw[MAX_PATH];
     wchar_t gcPathFull[MAX_PATH];
     _snwprintf_s(gcPathRaw, std::size(gcPathRaw), L"%ls\\..\\..\\csgo_gc\\" GC_LIB_DIR "\\csgo_gc" GC_LIB_EXTENSION, baseDir);
@@ -171,7 +171,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     }
     InstallGC(false);
 
-    // engine2.dll lives next to this exe in game\bin\win64\
+    // engine2.dll lives next to this exe in game\bin\win64
     _snwprintf_s(modulePath, std::size(modulePath), L"%ls\\engine2.dll", baseDir);
     Source2Main_t Source2Main = (Source2Main_t)LoadModuleAndFindSymbol(modulePath, "Source2Main");
     if (!Source2Main)
