@@ -2429,8 +2429,14 @@ static void ShutdownSteamAPI(bool dedicated)
     }
 }
 
+static bool s_steamClientHooksInstalled = false;
+
 static void InstallSteamClientHooks(void *preloadedModule = nullptr)
 {
+    if (s_steamClientHooksInstalled)
+        return;
+    s_steamClientHooksInstalled = true;
+
 #ifdef _WIN32
     // On Windows, bypass Platform::SteamClientPath/Factory entirely.
     // Use the already-loaded module handle directly — path-based LoadLibraryExW
