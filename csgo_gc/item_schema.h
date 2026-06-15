@@ -16,6 +16,7 @@ class AttributeInfo
 {
 public:
     explicit AttributeInfo(const KeyValue &key);
+    explicit AttributeInfo(AttributeType type) : m_type{ type } {}
 
     AttributeType m_type;
 };

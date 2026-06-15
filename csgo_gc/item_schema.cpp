@@ -111,10 +111,44 @@ uint32_t LootListItem::CaseRarity() const
 
 ItemSchema::ItemSchema()
 {
+    // Seed known attribute types so skin/sticker/music attributes work even when
+    // items_game.txt is unavailable (CS2 packs it in VPK, not a loose file).
+    // items_game.txt overrides these via try_emplace after loading.
+    static const std::pair<uint32_t, AttributeType> k_knownAttributes[] = {
+        { 6,   AttributeType::Uint32 }, // set item texture prefab (paint kit)
+        { 7,   AttributeType::Uint32 }, // set item texture seed
+        { 8,   AttributeType::Float  }, // set item texture wear
+        { 80,  AttributeType::Uint32 }, // kill eater (StatTrak count)
+        { 81,  AttributeType::Uint32 }, // kill eater score type
+        { 111, AttributeType::String }, // custom name tag
+        { 113, AttributeType::Uint32 }, { 114, AttributeType::Float  },
+        { 115, AttributeType::Float  }, { 116, AttributeType::Float  },
+        { 117, AttributeType::Uint32 }, { 118, AttributeType::Float  },
+        { 119, AttributeType::Float  }, { 120, AttributeType::Float  },
+        { 121, AttributeType::Uint32 }, { 122, AttributeType::Float  },
+        { 123, AttributeType::Float  }, { 124, AttributeType::Float  },
+        { 125, AttributeType::Uint32 }, { 126, AttributeType::Float  },
+        { 127, AttributeType::Float  }, { 128, AttributeType::Float  },
+        { 129, AttributeType::Uint32 }, { 130, AttributeType::Float  },
+        { 131, AttributeType::Float  }, { 132, AttributeType::Float  },
+        { 133, AttributeType::Uint32 }, { 134, AttributeType::Float  },
+        { 135, AttributeType::Float  }, { 136, AttributeType::Float  },
+        { 166, AttributeType::Uint32 }, // music id
+        { 168, AttributeType::Uint32 }, // quest id
+        { 232, AttributeType::Uint32 }, // sprays remaining
+        { 233, AttributeType::Uint32 }, // spray tint id
+        { 270, AttributeType::Uint32 }, // casket items count
+        { 271, AttributeType::Uint32 }, // casket modification date
+        { 272, AttributeType::Uint32 }, // casket id low
+        { 273, AttributeType::Uint32 }, // casket id high
+    };
+    for (auto [id, type] : k_knownAttributes)
+        m_attributeInfo.emplace(id, type);
+
     KeyValue itemSchema{ "root" };
     if (!itemSchema.ParseFromFile("csgo/scripts/items/items_game.txt"))
     {
-        assert(false);
+        Platform::Print("csgo_gc: items_game.txt not found, using hardcoded attribute types\n");
         return;
     }
 
