@@ -581,6 +581,10 @@ bool Inventory::UnlockCrate(uint64_t crateId,
 
     CSOEconItem &item = CreateItem(temp);
 
+    // Use a real inventory position so CS2 doesn't attempt Steam server
+    // validation (which always fails on local GC and shows "unable to retrieve")
+    item.set_inventory(static_cast<uint32_t>(m_items.size()));
+
     ToSingleObject(newItem, item);
 
     // souvenir packages use a different notification so the game plays the right animation
