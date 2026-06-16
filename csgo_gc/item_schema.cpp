@@ -330,6 +330,7 @@ bool ItemSchema::SetAttributeFloat(CSOEconItemAttribute *attribute, float value)
     case AttributeType::Uint32:
     {
         uint32_t convert = static_cast<uint32_t>(value);
+        attribute->set_value(convert);
         attribute->set_value_bytes(&convert, sizeof(convert));
         break;
     }
@@ -369,6 +370,7 @@ bool ItemSchema::SetAttributeUint32(CSOEconItemAttribute *attribute, uint32_t va
 
     case AttributeType::Uint32:
     {
+        attribute->set_value(value);
         attribute->set_value_bytes(&value, sizeof(value));
         break;
     }
@@ -409,6 +411,7 @@ bool ItemSchema::SetAttributeString(CSOEconItemAttribute *attribute, std::string
     case AttributeType::Uint32:
     {
         uint32_t convert = FromString<uint32_t>(value);
+        attribute->set_value(convert);
         attribute->set_value_bytes(&convert, sizeof(convert));
         break;
     }
