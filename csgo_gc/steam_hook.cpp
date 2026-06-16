@@ -2394,6 +2394,13 @@ static void Hk_SteamGameServer_RunCallbacks()
                 s_serverGC->m_networking.SendMessage((uint32_t)event.id, event.buffer.data(), static_cast<uint32_t>(event.buffer.size()));
                 break;
 
+            case HostEvent::SOCacheRequest:
+                // Server GC received Server2GCClientValidate — forward to client GC
+                // so it sends the player's equipped-item SO cache to the game server.
+                if (s_clientGC)
+                    s_clientGC->m_gc.PostToGC(GCEvent::SOCacheRequest, 0, nullptr, 0);
+                break;
+
             default:
                 assert(false);
                 break;

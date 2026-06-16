@@ -79,7 +79,10 @@ void ServerGC::HandleMessage(uint32_t type, const void *data, uint32_t size)
             break;
 
         case k_EMsgGCCStrike15_v2_Server2GCClientValidate:
-            // server doesn't want a response so ignore
+            // Game server is telling us a player connected — ask the client GC to send
+            // the player's equipped-item SO cache to the game server.
+            Platform::Print("ServerGC: Server2GCClientValidate received, triggering SO cache send\n");
+            PostToHost(HostEvent::SOCacheRequest, 0, nullptr, 0);
             break;
 
         case k_EMsgGC_IncrementKillCountAttribute:
