@@ -16,30 +16,34 @@ static char s_logFilePath[MAX_PATH];
 
 static void ComputeLogPath()
 {
+    char dllPath[MAX_PATH];
+    char *p;
+    HMODULE hSelf;
+
     if (s_logFilePath[0])
         return;
 
-    // Get the path of this DLL: game\csgo_gc\x64\csgo_gc.dll
-    HMODULE hSelf = nullptr;
+    // Get the absolute path of this DLL: game\csgo_gc\x64\csgo_gc.dll
+    hSelf = nullptr;
     GetModuleHandleExA(
         GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         reinterpret_cast<LPCSTR>(ComputeLogPath), &hSelf);
 
-    char dllPath[MAX_PATH] = {};
+    dllPath[0] = '\0';
     GetModuleFileNameA(hSelf, dllPath, MAX_PATH);
 
-    // Strip filename: game\csgo_gc\x64\
-    char *last = strrchr(dllPath, '\\');
-    if (last) *last = '\0';
+    // Strip filename to get game\csgo_gc\x64\
+    p = strrchr(dllPath, '\\');
+    if (p) *p = '\0';
 
-    // Strip x64\: game\csgo_gc\
-    last = strrchr(dllPath, '\\');
-    if (last) *last = '\0';
+    // Strip x64\ to get game\csgo_gc\
+    p = strrchr(dllPath, '\\');
+    if (p) *p = '\0';
 
-    // Save the data dir (game\csgo_gc\) with trailing backslash
+    // Save data dir with trailing backslash: game\csgo_gc\
     snprintf(s_dataDir, MAX_PATH, "%s\\", dllPath);
 
-    // Append gc_log.txt: game\csgo_gc\gc_log.txt
+    // Build log path: game\csgo_gc\gc_log.txt
     snprintf(s_logFilePath, MAX_PATH, "%s\\gc_log.txt", dllPath);
 }
 
