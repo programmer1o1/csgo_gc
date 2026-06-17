@@ -2319,6 +2319,9 @@ static void *Hk_SteamInternal_FindOrCreateUserInterface(HSteamUser hSteamUser, c
 
 static void Hk_SteamAPI_RegisterCallback(class CCallbackBase *pCallback, int iCallback)
 {
+    if (iCallback == GCMessageAvailable_t::k_iCallback)
+        Platform::Print("csgo_gc: game registered GCMessageAvailable_t callback\n");
+
     if (s_callbackHooks.RegisterCallback(pCallback, iCallback))
     {
         return;
@@ -2585,19 +2588,17 @@ static void InstallSteamClientHooks(void *preloadedModule = nullptr)
 #endif
 }
 
-// CS2 deferred path: SteamAPI_Init is hooked so that steamclient setup happens
-// the first time the game calls it (from within Source2Main, after tier0 is ready).
 static bool s_deferredDedicated;
 static bool (*Og_SteamAPI_Init)();
 
+// SteamAPI_Init creates the ISteamGameCoordinator interface internally via steamclient64
+// before any game code requests it. By the time any public hook fires for the GC, the
+// interface is already cached and never re-requested. Hook SteamAPI_Init so we can create
+// our proxy *after* Steam is fully up (SteamUser()->GetSteamID() valid) but before the
+// game's GC client code runs.
 static bool Hk_SteamAPI_Init()
 {
     Platform::Print("csgo_gc: Hk_SteamAPI_Init fired\n");
-    // Hook CreateInterface BEFORE SteamAPI_Init runs: the real SteamAPI_Init creates
-    // the ISteamGameCoordinator interface internally, so hooking after would be too late.
-    // steamclient64.dll is already in memory because steam_api64.dll loads it on attach.
-    InstallSteamClientHooks();
-    Platform::Print("csgo_gc: steamclient hooks installed, calling real SteamAPI_Init\n");
     bool result = Og_SteamAPI_Init();
     Platform::Print("csgo_gc: SteamAPI_Init returned %d\n", (int)result);
     if (!result)
@@ -2608,6 +2609,17 @@ static bool Hk_SteamAPI_Init()
                         "- Verify that you have launched app %u through Steam at least once.",
             AppId::GetOverride());
     }
+#ifdef _WIN32
+    if (result && !s_cs2GCProxy)
+    {
+        HSteamUser hUser = SteamAPI_GetHSteamUser();
+        uint64_t steamId = SteamUser() ? SteamUser()->GetSteamID().ConvertToUint64() : 0;
+        Platform::Print("csgo_gc: creating GC proxy after SteamAPI_Init: user=%d steamId=%llu\n",
+            (int)hUser, (unsigned long long)steamId);
+        s_clientHSteamUser = hUser;
+        s_cs2GCProxy = new SteamGameCoordinatorProxy(steamId);
+    }
+#endif
     return result;
 }
 
@@ -2665,6 +2677,24 @@ void SteamHookPreInstall(bool dedicated)
     Platform::SetEnvVar("SteamAppId", std::to_string(AppId::GetOverride()).c_str());
 
 #ifdef _WIN32
+    // Hook SteamAPI_Init so we can create the GC proxy after Steam is fully
+    // initialized. steam_api64.dll is pre-loaded by the launcher before PreInstallGC.
+    {
+        HMODULE steamApi = GetModuleHandleW(L"steam_api64.dll");
+        void *fnInit = steamApi ? reinterpret_cast<void *>(GetProcAddress(steamApi, "SteamAPI_Init")) : nullptr;
+        if (fnInit)
+        {
+            HookCreate("SteamAPI_Init", fnInit,
+                reinterpret_cast<void *>(Hk_SteamAPI_Init),
+                reinterpret_cast<void **>(&Og_SteamAPI_Init));
+            Platform::Print("csgo_gc: hooked SteamAPI_Init\n");
+        }
+        else
+        {
+            Platform::Print("csgo_gc: SteamAPI_Init not found in steam_api64.dll\n");
+        }
+    }
+
     // steamclient64.dll is loaded lazily by CS2's engine init, not at launcher startup.
     // If it's already in memory (e.g. Steam bootstrapped early), hook it now.
     // Otherwise register a DLL load notification so we hook it the moment it loads.
