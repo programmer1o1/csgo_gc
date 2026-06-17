@@ -511,7 +511,7 @@ inline bool InterfaceMatches(const char *name, const char (&compare)[N])
     if (!memcmp(name, compare, length - 3))
     {
         Platform::Print("Got interface version %s, expecting %s\n", name, compare);
-        return false; // not a match
+        return true; // accept version mismatch — proxy newer versions of the same interface
     }
 
     return false; // not a match
