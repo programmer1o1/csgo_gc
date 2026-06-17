@@ -2874,6 +2874,46 @@ static void InstallSteamClientHooks(void *preloadedModule = nullptr)
 static bool s_deferredDedicated;
 
 #ifdef _WIN32
+// Direct hooks on CClientGameCoordinator methods inside steamclient64.dll.
+// CClientGameCoordinator takes HSteamPipe as second arg (the adapter passes 0).
+static bool s_gcInnerHooked = false;
+static EGCResults (*Og_CClientGC_SendMessage)(void *, int, uint32, const void *, uint32);
+static bool      (*Og_CClientGC_IsMessageAvailable)(void *, int, uint32 *);
+static EGCResults (*Og_CClientGC_RetrieveMessage)(void *, int, uint32 *, void *, uint32, uint32 *);
+
+static EGCResults Hk_CClientGC_SendMessage(void *thisptr, int pipe, uint32 msgType, const void *data, uint32 size)
+{
+    Platform::Print("csgo_gc: CClientGC_SendMessage type=%u size=%u\n", msgType, size);
+    if (s_clientGC)
+    {
+        s_clientGC->m_gc.PostToGC(GCEvent::Message, msgType, data, size);
+        return k_EGCResultOK;
+    }
+    return Og_CClientGC_SendMessage(thisptr, pipe, msgType, data, size);
+}
+
+static bool Hk_CClientGC_IsMessageAvailable(void *thisptr, int pipe, uint32 *pSize)
+{
+    if (s_clientGC)
+        return s_clientGC->m_messageQueue.IsMessageAvailable(*pSize);
+    return Og_CClientGC_IsMessageAvailable(thisptr, pipe, pSize);
+}
+
+static EGCResults Hk_CClientGC_RetrieveMessage(void *thisptr, int pipe, uint32 *pType, void *pDest, uint32 destSize, uint32 *pSize)
+{
+    if (s_clientGC)
+    {
+        bool ok = s_clientGC->m_messageQueue.RetrieveMessage(*pType, pDest, destSize, *pSize);
+        if (!ok)
+            return destSize < *pSize ? k_EGCResultBufferTooSmall : k_EGCResultNoMessage;
+        Platform::Print("csgo_gc: CClientGC_RetrieveMessage type=%u size=%u\n", *pType, *pSize);
+        return k_EGCResultOK;
+    }
+    return Og_CClientGC_RetrieveMessage(thisptr, pipe, pType, pDest, destSize, pSize);
+}
+#endif
+
+#ifdef _WIN32
 // CS2 uses SteamAPI_InitFlat (not SteamAPI_Init). After it returns, Steam is fully
 // initialized: SteamUser()->GetSteamID() is valid and the real ISteamGameCoordinator
 // object exists. Hook its vtable methods to redirect all GC communication to our
@@ -2902,7 +2942,37 @@ static void AfterSteamInit()
     s_fetchingRealGC = false;
     Platform::Print("csgo_gc: real GC interface: %p\n", realGC);
     if (realGC)
+    {
         HookGCVtable(realGC);
+        // Log the inner CClientGameCoordinator vtable so we can hook it directly.
+        uintptr_t innerObj = *reinterpret_cast<uintptr_t *>(reinterpret_cast<uintptr_t>(realGC) + 8);
+        if (innerObj)
+        {
+            uintptr_t *innerVtable = *reinterpret_cast<uintptr_t **>(innerObj);
+            Platform::Print("csgo_gc: CClientGC inner=%p vtable[0]=%p [1]=%p [2]=%p\n",
+                (void *)innerObj, (void *)innerVtable[0], (void *)innerVtable[1], (void *)innerVtable[2]);
+
+            // Hook CClientGameCoordinator methods directly in steamclient64 so we
+            // intercept GC communication regardless of which wrapper the game uses.
+            if (!s_gcInnerHooked)
+            {
+                HookCreate("CClientGC_SendMessage",
+                    reinterpret_cast<void *>(innerVtable[0]),
+                    reinterpret_cast<void *>(Hk_CClientGC_SendMessage),
+                    reinterpret_cast<void **>(&Og_CClientGC_SendMessage));
+                HookCreate("CClientGC_IsMessageAvailable",
+                    reinterpret_cast<void *>(innerVtable[1]),
+                    reinterpret_cast<void *>(Hk_CClientGC_IsMessageAvailable),
+                    reinterpret_cast<void **>(&Og_CClientGC_IsMessageAvailable));
+                HookCreate("CClientGC_RetrieveMessage",
+                    reinterpret_cast<void *>(innerVtable[2]),
+                    reinterpret_cast<void *>(Hk_CClientGC_RetrieveMessage),
+                    reinterpret_cast<void **>(&Og_CClientGC_RetrieveMessage));
+                s_gcInnerHooked = true;
+                Platform::Print("csgo_gc: CClientGameCoordinator methods hooked\n");
+            }
+        }
+    }
 
     // Create our local ClientGC if not already created by another code path.
     if (!s_clientGC)
