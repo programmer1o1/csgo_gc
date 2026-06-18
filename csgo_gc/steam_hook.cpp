@@ -1761,17 +1761,28 @@ public:
         Platform::Print("csgo_gc: SteamInterfaceProxy::GetInterface(\"%s\")\n", version);
         if (InterfaceMatches(version, STEAMGAMECOORDINATOR_INTERFACE_VERSION))
         {
-            // If the GC vtable hooks are installed (CS2 path), s_clientGC is already
-            // set up and the real interface methods are hooked. Return null so
-            // ProxyInterface falls back to the original (hooked) interface.
-            if (s_clientGC)
-                return nullptr;
-
-            // CS:GO / fallback: create a proxy that owns the local GC.
+#ifdef _WIN32
+            // Route by pipe: server pipe matches m_pipe → server proxy, otherwise client.
+            HSteamPipe serverPipe = SteamGameServer_GetHSteamPipe();
+            bool isServer = (serverPipe != 0 && serverPipe == m_pipe);
+            if (isServer)
+            {
+                if (!s_cs2GCProxyServer)
+                    s_cs2GCProxyServer = new SteamGameCoordinatorProxy(0);
+                return static_cast<ISteamGameCoordinator *>(s_cs2GCProxyServer);
+            }
+            if (!s_cs2GCProxy)
+            {
+                uint64_t steamId = SteamUser() ? SteamUser()->GetSteamID().ConvertToUint64() : 0;
+                s_cs2GCProxy = new SteamGameCoordinatorProxy(steamId);
+            }
+            return static_cast<ISteamGameCoordinator *>(s_cs2GCProxy);
+#else
             uint64_t steamId = 0;
             if (SteamGameServer_GetHSteamPipe() != m_pipe)
                 steamId = SteamUser()->GetSteamID().ConvertToUint64();
             return GetOrCreate<ISteamGameCoordinator>(m_steamGameCoordinator, steamId);
+#endif
         }
         else if (InterfaceMatches(version, STEAMUTILS_INTERFACE_VERSION))
         {
