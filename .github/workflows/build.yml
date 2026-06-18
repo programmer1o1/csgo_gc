@@ -50,16 +50,32 @@ jobs:
         cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_OSX_ARCHITECTURES=x86_64 -DFUNCHOOK_CPU=x86 -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
         cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }} --target csgo csgo_gc --parallel
 
+    # Use the Ninja generator on Windows: the Visual Studio generator ignores
+    # CMAKE_CXX_COMPILER_LAUNCHER, so sccache only actually caches under Ninja.
     - if: matrix.os == 'windows-2022'
-      name: Build Windows
-      env:
-        SCCACHE_GHA_ENABLED: "true"
+      name: Setup MSVC (x86)
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x86
+
+    - if: matrix.os == 'windows-2022'
+      name: Build Windows (Win32)
       run: |
         mkdir ${{ github.workspace }}/release
-        cmake -A Win32 -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
-        cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }} --target csgo srcds csgo_gc -- /maxcpucount
-        cmake -A x64 -B ${{ github.workspace }}/build_x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
-        cmake --build ${{ github.workspace }}/build_x64 --config ${{ matrix.build_type }} --target cs2 csgo_gc -- /maxcpucount
+        cmake -G Ninja -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
+        cmake --build ${{ github.workspace }}/build --target csgo srcds csgo_gc
+
+    - if: matrix.os == 'windows-2022'
+      name: Setup MSVC (x64)
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: amd64
+
+    - if: matrix.os == 'windows-2022'
+      name: Build Windows (x64)
+      run: |
+        cmake -G Ninja -B ${{ github.workspace }}/build_x64 -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S ${{ github.workspace }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DOUTDIR=${{ github.workspace }}/release
+        cmake --build ${{ github.workspace }}/build_x64 --target cs2 csgo_gc
 
     - name: Package
       shell: bash
