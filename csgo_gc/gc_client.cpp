@@ -1033,17 +1033,20 @@ void ClientGC::DoUnlockCrate(uint64_t crateId, uint64_t keyId, uint64_t jobId)
         SendMessageToGame(true, k_ESOMsg_Destroy, destroyKey);
         SendMessageToGame(true, k_ESOMsg_Create, newItem);
 
-        // Legacy ack (kept for the old struct-based flow); not the job reply.
+        // The unbox reply. CS2's CGCUnlockCrateResponse job (handler for msg 1008) reads a
+        // result code from the body: 0 = success, and on success the job fires the reveal
+        // itself by scanning the SO cache for the freshly-created origin=5 item. A non-zero
+        // or timed-out result is what produces the "we are unable to retrieve your item"
+        // dialog. So send 1008 with an empty body (result 0) and the request's job id so the
+        // waiting job receives it. (Create must precede this — done above — so the success
+        // path finds the item.)
         {
-            CMsgGCItemCustomizationNotification emptyResponse;
-            SendMessageToGame(false, k_EMsgGCUnlockCrateResponse, emptyResponse);
+            CMsgGCItemCustomizationNotification emptyResponse; // empty -> result 0
+            SendMessageToGame(false, k_EMsgGCUnlockCrateResponse, emptyResponse, jobId);
         }
 
-        // Opening a crate is a GC *job*: the client waits for the item-customization
-        // notification (the "here's what you unboxed" message) carrying its job id.
-        // Without the matching job id the job times out and the client shows "we are
-        // unable to receive your items" even though the item was already granted.
-        SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification, jobId);
+        // Inventory-UI notification (no job id; the reveal is driven by the job above).
+        SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification);
     }
     else
     {
