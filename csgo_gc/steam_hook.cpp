@@ -511,7 +511,7 @@ inline bool InterfaceMatches(const char *name, const char (&compare)[N])
     if (!memcmp(name, compare, length - 3))
     {
         Platform::Print("Got interface version %s, expecting %s\n", name, compare);
-        return true; // accept version mismatch — proxy newer versions of the same interface
+        return false; // not a match
     }
 
     return false; // not a match
@@ -1781,7 +1781,8 @@ public:
         {
             return GetOrCreate<ISteamUserStats>(m_steamUserStats, static_cast<ISteamUserStats *>(original));
         }
-        else if (InterfaceMatches(version, STEAMGAMESERVER_INTERFACE_VERSION))
+        else if (InterfaceMatches(version, STEAMGAMESERVER_INTERFACE_VERSION) ||
+                 strncmp(version, "SteamGameServer", 15) == 0)
         {
             return GetOrCreate<ISteamGameServer>(m_steamGameServer, static_cast<ISteamGameServer *>(original));
         }
