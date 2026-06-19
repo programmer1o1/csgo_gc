@@ -994,36 +994,15 @@ void ClientGC::OpenCrate(GCMessageRead &messageRead)
         return;
     }
 
-    // CS2 unboxes in two steps via the X-ray scanner: a scan (preview what's inside) then a
-    // commit (claim it). We treat the first OpenCrate for a crate as the scan and the next
-    // for the same crate as the commit. Sending the old one-step unlock here makes the
-    // scanner UI never get its XRayItemReveal and show "Steam Connection Error".
-    if (!m_inventory.HasPendingScan(crateId))
-    {
-        Platform::Print("OpenCrate SCAN crate=%llu key=%llu\n", crateId, keyId);
-
-        CMsgSOSingleObject newItem;
-        CMsgGCItemCustomizationNotification notification;
-        if (m_inventory.ScanCrate(crateId, newItem, notification))
-        {
-            // Create the item first so the scanner can find it, then reveal it (no consume).
-            SendMessageToGame(true, k_ESOMsg_Create, newItem);
-            SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification);
-        }
-    }
-    else
-    {
-        Platform::Print("OpenCrate COMMIT crate=%llu key=%llu\n", crateId, keyId);
-
-        CMsgSOSingleObject destroyCrate, destroyKey;
-        CMsgGCItemCustomizationNotification notification;
-        if (m_inventory.CommitCrate(crateId, keyId, destroyCrate, destroyKey, notification))
-        {
-            SendMessageToGame(true, k_ESOMsg_Destroy, destroyCrate);
-            SendMessageToGame(true, k_ESOMsg_Destroy, destroyKey);
-            SendMessageToGame(false, k_EMsgGCItemCustomizationNotification, notification);
-        }
-    }
+    // Unboxing is a SINGLE step at the GC level (verified by RE of client.dll's
+    // CGCUnlockCrateResponse job): the client sends OpenCrate as a *job* and waits for a
+    // k_EMsgGCUnlockCrateResponse addressed to that job id. On result 0 the job scans the SO
+    // cache for the highest-id origin==5 item and fires the X-ray reveal UI itself; a non-zero
+    // result or a timed-out job is what shows the "unable to retrieve your item" dialog. So we
+    // just run the normal unlock and reply to the job. (The earlier two-step "scan/commit"
+    // model was wrong: it sent the reveal notification but never answered the job, so the job
+    // always timed out.)
+    DoUnlockCrate(crateId, keyId, messageRead.JobId());
 }
 
 void ClientGC::UnlockCrate(GCMessageRead &messageRead)
