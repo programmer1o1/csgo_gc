@@ -42,7 +42,11 @@ public:
     void SendMessage(uint64_t steamId, const void *data, uint32_t size);
 
 private:
-    ISteamNetworkingMessages *const m_networkingMessages;
+    // NOTE: deliberately NOT caching the ISteamNetworkingMessages interface. On a map change
+    // the game server restarts and that interface is freed; a cached pointer dangles and
+    // crashes when polled (NetworkingServer::ReceiveMessage). Fetch the live one each call.
+    static ISteamNetworkingMessages *Messages() { return SteamGameServerNetworkingMessages(); }
+
     ClientSet m_clients;
 
     STEAM_GAMESERVER_CALLBACK(NetworkingServer,
